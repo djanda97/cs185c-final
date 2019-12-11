@@ -8,12 +8,6 @@ import pickle
 import os.path
 
 
-def print_opcodes(data, label):
-    print(label)
-    for opcode in data:
-        print(opcode)
-
-
 def get_similarities(word_vectors, opcode_pairs, label):
     similarities = []
     # for wv in word_vectors:
@@ -64,7 +58,7 @@ def run():
     model_file = args.family + ".model"
     model.save(model_file)
 
-    model = Word2Vec.load(model_file)
+    # model = Word2Vec.load(model_file)
 
     print("training:", model.train(
         [["mov", "sub", "pop", "push"]], total_examples=10, epochs=3))

@@ -72,12 +72,13 @@ def run():
     path = "./cs185c_final_data/" + args.family
 
     data = PathLineSentences(path, limit=100)
+    # data = PathLineSentences(path)
 
     epoch_logger = EpochLogger()
 
     # if not os.path.exists(args.family + ".model"):
     model = Word2Vec(data, size=2, window=6, min_count=1,
-                    workers=4, callbacks=[epoch_logger])
+                        workers=4, callbacks=[epoch_logger])
     model_file = args.family + ".model"
     model.save(model_file)
     # else:
@@ -85,17 +86,37 @@ def run():
 
     # model = Word2Vec.load(model_file)
 
-    word_vectors = model.wv
+    # samples = []
+    # models = []
 
-    # vec_mov = model.wv["mov"]
-    # print("vec_mov:", vec_mov)
+    # for i, file in enumerate(os.listdir(path)):
+    #     samples.append(LineSentence(file))
+    #     models.append(Word2Vec(samples[i], size=2, window=6, min_count=1,
+    #                            workers=4, callbacks=[epoch_logger]))
+
+    # for s in samples:
+    #     print(s)
+
+    # for m in models:
+    #     print(m)
+
+    word_vectors = model.wv
+    
+    opcode_vectors = []
+
+    print("\nopcode_vectors:")
+    for i, opcode in enumerate(word_vectors.vocab):
+        opcode_vectors.append(word_vectors[opcode])
+        print(f"{i + 1}:", opcode, opcode_vectors[i])
 
     opcode_pairs = get_opcode_pairs()
 
     similarities = get_similarities(word_vectors, opcode_pairs)
 
+    print("\nsimilarities:")
     for pair, similarity in similarities.items():
         print(pair, ":", similarity)
+
 
 if __name__ == "__main__":
     run()

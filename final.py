@@ -4,6 +4,7 @@ from gensim.models.word2vec import LineSentence, PathLineSentences
 from gensim.models.keyedvectors import WordEmbeddingsKeyedVectors
 from gensim.models.callbacks import CallbackAny2Vec
 from itertools import combinations
+from pprint import pprint
 import argparse
 import pickle
 import os.path
@@ -60,6 +61,7 @@ class EpochLogger(CallbackAny2Vec):
         print("Epoch #{} end".format(self.epoch))
         self.epoch += 1
 
+
 def run():
     parser = argparse.ArgumentParser(
         description="Compute embedding vectors for different malware families.")
@@ -74,10 +76,13 @@ def run():
 
     epoch_logger = EpochLogger()
 
+    # if not os.path.exists(args.family + ".model"):
     model = Word2Vec(data, size=2, window=6, min_count=1,
-                     workers=4, callbacks=[epoch_logger])
+                    workers=4, callbacks=[epoch_logger])
     model_file = args.family + ".model"
     model.save(model_file)
+    # else:
+    #     model = Word2Vec.load(args.family + ".model")
 
     # model = Word2Vec.load(model_file)
 
@@ -85,20 +90,23 @@ def run():
     #     [["mov", "sub", "pop", "push"]], total_examples=10, epochs=3))
 
     word_vectors = model.wv
+
+    # print(word_vectors)
     # vec_mov = model.wv["mov"]
     # print("word_vectors:", word_vectors.get_vector("mov"))
     # print("vec_mov:", vec_mov)
 
     opcode_pairs = get_opcode_pairs()
 
-    similarities = get_similarities(word_vectors, opcode_pairs)
-
-    print("similarities:\n", similarities)
-
     # for i, pair in enumerate(opcode_pairs):
     #     # print(pair[0], pair[1])
     #     print(f"{i + 1}:", pair)
 
+    similarities = get_similarities(word_vectors, opcode_pairs)
+
+    print("\nsimilarities:\n")
+    pprint(similarities)
+    print("len(similarities):", len(similarities))
 
 if __name__ == "__main__":
     run()

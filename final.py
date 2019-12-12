@@ -8,6 +8,7 @@ from pprint import pprint
 import argparse
 import pickle
 import os.path
+import numpy as np
 
 
 def get_similarities(word_vectors, opcode_pairs):
@@ -29,14 +30,13 @@ def get_top20(filename):
         top20 = top20.replace(char, "")
 
     top20 = top20.split()
+    top20 = [opcode.lower() for opcode in top20]
     return top20
 
 
 def get_opcode_pairs():
     if not os.path.exists("opcode_pairs.pickle"):
         top20 = get_top20("./cs185c_final_data/top20.txt")
-
-        top20 = [opcode.lower() for opcode in top20]
 
         opcode_pairs = combinations(top20, 2)
 
@@ -71,7 +71,7 @@ def run():
 
     path = "./cs185c_final_data/" + args.family
 
-    data = PathLineSentences(path, limit=100)
+    data = PathLineSentences(path, limit=50)
     # data = PathLineSentences(path)
 
     epoch_logger = EpochLogger()
@@ -84,21 +84,45 @@ def run():
     # else:
     #     model = Word2Vec.load(args.family + ".model")
 
-    # model = Word2Vec.load(model_file)
+    samples = []
+    models = []
+    embedding_vectors = []
 
-    # samples = []
-    # models = []
-
-    # for i, file in enumerate(os.listdir(path)):
-    #     samples.append(LineSentence(file))
-    #     models.append(Word2Vec(samples[i], size=2, window=6, min_count=1,
-    #                            workers=4, callbacks=[epoch_logger]))
-
-    # for s in samples:
-    #     print(s)
+    for i, file in enumerate(sorted(os.listdir(path))):
+        if i % 100 == 0:
+            print("file:", file)
+        samples.append(LineSentence(path + "/" + file, limit=50))
+        models.append(Word2Vec(samples[i], size=2, window=6, min_count=1,
+                               workers=4))
 
     # for m in models:
     #     print(m)
+
+    embedding_vectors = np.array([])
+
+    top20 = get_top20("./cs185c_final_data/top20.txt")
+
+    for m in models:
+        for i in range(20):
+            if top20[i] not in m.wv.vocab:
+                embedding_vectors = np.append(embedding_vectors, [0, 0])
+            else:
+                embedding_vectors = np.append(embedding_vectors, m.wv[top20[i]])
+
+    embedding_vectors = np.reshape(embedding_vectors, (40, 900))
+    embedding_vectors = np.transpose(embedding_vectors)
+
+    print("\nembedding_vectors:\n")
+    pprint(embedding_vectors)
+    print("embedding_vectors.shape:", embedding_vectors.shape)
+
+    print("\nembedding_vectors[0]:\n")
+    pprint(embedding_vectors[0])
+    print("embedding_vectors[0].shape:", embedding_vectors[0].shape)
+
+    # for i in range(embedding_vectors.shape[0]):
+    #     pprint(embedding_vectors[i])
+    #     print(f"embedding_vectors[{i}].shape:", embedding_vectors[i].shape)
 
     word_vectors = model.wv
     

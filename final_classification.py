@@ -1,4 +1,7 @@
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import VotingClassifier, RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn import svm
 from multiprocessing import Process, Manager
 import re
 
@@ -80,7 +83,24 @@ def run():
     # n_estimator = 132 found to be the best
     rf_model = RandomForestClassifier(n_estimators=132)
     rf_model.fit(training_data, training_classifications)
-    print(rf_model.score(scoring_data, scoring_classifications))
+    print("Random Forest Accuracy: " + str(rf_model.score(scoring_data, scoring_classifications)))
+
+    # Try out a bunch of different models and test for accuracy:
+    knn_model = KNeighborsClassifier(n_neighbors=1, algorithm = "brute")
+    knn_model.fit(training_data, training_classifications)
+    print("KNN Accuracy: " + str(knn_model.score(scoring_data, scoring_classifications)))
+    mlp_model = MLPClassifier()
+    mlp_model.fit(training_data, training_classifications)
+    print("MLP Accuracy: " + str(mlp_model.score(scoring_data, scoring_classifications)))
+    boost_model = GradientBoostingClassifier()
+    boost_model.fit(training_data, training_classifications)
+    print("Gradient Boost Accuracy: " + str(boost_model.score(scoring_data, scoring_classifications)))
+    adaboost_model = AdaBoostClassifier(base_estimator = RandomForestClassifier(n_estimators = 100))
+    adaboost_model.fit(training_data, training_classifications)
+    print("Adaboost Accuracy: " + str(adaboost_model.score(scoring_data, scoring_classifications)))
+    svm_model = svm.SVC(kernel="poly", gamma="auto")
+    svm_model.fit(training_data, training_classifications)
+    print("SVM Accuracy: " + str(svm_model.score(scoring_data, scoring_classifications)))
 
 
 if __name__ == "__main__":
@@ -96,6 +116,8 @@ if __name__ == "__main__":
 exit()
 # The code below here is used to find the optimum random forest, i.e. that with the greatest accuracy (by varying n_estimators).
 # It builds random forests in separate processes to try to speed things up by running them in parallel.
+
+
 
 # Function to find the optimum random forest. Might take a while. Batch processes to run 10 at a time.
 def find_best_rf(val):
@@ -120,7 +142,8 @@ def find_average_accuracy_rf(n_estimators, training_data, training_classificatio
     for i in range(10):
         rf_model = RandomForestClassifier(n_estimators=n_estimators)
         rf_model.fit(training_data, training_classifications)
-        sum += rf_model.score(scoring_data, scoring_classifications)
+        accuracy = rf_model.score(scoring_data, scoring_classifications)
+        sum += accuracy
     average_accuracies[n_estimators] = sum / 10 # Put avg accuarcy in the dictionary
     print("n_estimators: " + str(n_estimators) + " accuracy: " + str(sum / 10))
 
@@ -133,7 +156,8 @@ for i in range(100):
 max_accuracy = 0
 max_n_estimator = 0
 # Search through dictionary to find greatest accuracy
-for key, val in average_accuracies:
+for key in average_accuracies:
+    val = average_accuracies[key]
     if val > max_accuracy:
         max_accuracy = val
         max_n_estimator = key

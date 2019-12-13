@@ -1,9 +1,10 @@
 from sklearn.ensemble import VotingClassifier, RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
-from sklearn import svm
+from sklearn import svm, metrics
 from multiprocessing import Process, Manager
 import re
+import matplotlib.pyplot as plt
 
 
 # Function to get training, scoring, and challenge data. Returns them each in the form of a list of vectors.
@@ -80,21 +81,47 @@ def run():
     [training_data, training_classifications, scoring_data, scoring_classifications, challenge_data] = get_data()
 
     # Try out a bunch of different models and test for accuracy:
-    # Try training 20 models of each type and using the one with greatest accuracy
+    # Try training x models of each type and using the one with greatest accuracy
     greatest_rf_model = 0
+    """
     greatest_knn_model = 0
     greatest_mlp_model = 0
     greatest_boost_model = 0
     greatest_adaboost_model = 0
     greatest_svm_model = 0
-    for i in range(25):
-        rf_model = RandomForestClassifier(n_estimators=182) # n_estimator = 19 found to be the best, possible accuracy of .975. 182 best average
+    greatest_voting_model = 0
+    """
+    greatest_score = 0
+    for i in range(10000):
+        rf_model = RandomForestClassifier(n_estimators=19, n_jobs=4) # n_estimator = 19, 5 found to be the best, possible accuracy of .975. 182 best average
         rf_model.fit(training_data, training_classifications)
         if greatest_rf_model == 0:
             greatest_rf_model = rf_model
-        elif rf_model.score(scoring_data, scoring_classifications) > greatest_rf_model.score(scoring_data, scoring_classifications):
-            greatest_rf_model = rf_model
+        else:
+            score = rf_model.score(scoring_data, scoring_classifications)
+            if score > greatest_score:
+                greatest_rf_model = rf_model
+                greatest_score = score
+                if greatest_score > .975:
+                    break
 
+    print("Random Forest Accuracy: " + str(greatest_rf_model.score(scoring_data, scoring_classifications)))
+
+    # Output results of challenge set
+    results_file = open("results.txt", "w")
+    stats_file = open("./cs185c_feature_vectors/Challenge_stats.txt", "r")
+    for i in range(len(challenge_data)):
+        prediction = greatest_rf_model.predict([challenge_data[i]])
+        line = stats_file.readline()[:8]
+        if prediction == [1]:
+            line += ", C\n"
+        else:
+            line += ", R\n"
+        results_file.write(line)
+
+        # Everything below here was used for testing stuff. I know, it's ugly.
+"""
+    for i in range(10):
         knn_model = KNeighborsClassifier(n_neighbors=1, algorithm = "brute")
         knn_model.fit(training_data, training_classifications)
         if greatest_knn_model == 0:
@@ -108,6 +135,7 @@ def run():
             greatest_mlp_model = mlp_model
         elif mlp_model.score(scoring_data, scoring_classifications) > greatest_mlp_model.score(scoring_data, scoring_classifications):
             greatest_mlp_model = mlp_model
+
 
         boost_model = GradientBoostingClassifier()
         boost_model.fit(training_data, training_classifications)
@@ -123,6 +151,7 @@ def run():
         elif adaboost_model.score(scoring_data, scoring_classifications) > greatest_adaboost_model.score(scoring_data, scoring_classifications):
             greatest_adaboost_model = adaboost_model
 
+
         svm_model = svm.SVC(kernel="poly", gamma="auto")
         svm_model.fit(training_data, training_classifications)
         if greatest_svm_model == 0:
@@ -131,37 +160,118 @@ def run():
             greatest_svm_model = svm_model
 
 
+
+    x_points_red = []
+    y_points_red = []
+    x_points_blue = []
+    y_points_blue = []
+    for i in range(len(scoring_data)):
+        #print("test: " + str(greatest_rf_model.predict_proba([scoring_data[i]])) + " " + str(greatest_rf_model.predict([scoring_data[i]])))
+        point = greatest_rf_model.predict_proba([scoring_data[i]])
+        if scoring_classifications[i] == 1:
+            x_points_red.append(point[0][0])
+            y_points_red.append(point[0][1])
+        elif scoring_classifications[i] == -1:
+            x_points_blue.append(point[0][0])
+            y_points_blue.append(point[0][1])
+        else:
+            print("error")
+    plt.scatter(x_points_red, y_points_red,color="red")
+    plt.scatter(x_points_blue, y_points_blue, marker="+", color="blue")
+    plt.plot([.5, .5], color="black")
+    plt.title("Random Forest Scatter Plot")
+    plt.show()
+
+    metrics.plot_roc_curve(greatest_rf_model, scoring_data, scoring_classifications)
+    plt.show()
+
+
+
+    # Can play around more with weights (and different voting classifiers) to see if it yields better results
+    weights = [1, 1, 2] #[1, 1, 1] #[1, 1, 1, 1, 5]
+    voting_model = VotingClassifier(estimators=[("knn", knn_model), ("rf", rf_model), ("mlp", mlp_model)], voting="soft", weights=weights)
+    voting_model.fit(training_data, training_classifications)
+
+    for a in range(3):
+        for b in range(3):
+            for c in range(3):
+
+
+                if greatest_voting_model == 0:
+                    greatest_voting_model = voting_model
+                elif voting_model.score(scoring_data, scoring_classifications) > greatest_voting_model.score(scoring_data, scoring_classifications):
+                    greatest_voting_model = voting_model
+                    best_weights = [a + 1, b + 1, c + 1]
+
+
+    for a in range(2):
+        for b in range(3):
+            for c in range(5):
+                for d in range(2):
+                    for e in range(5):
+                        weights = [a + 1, b + 1, c + 1, d + 1, e + 1]
+                        voting_model = VotingClassifier(estimators=[("knn", knn_model), ("rf", rf_model), ("mlp", mlp_model), ("gradient_boost", boost_model), ("adaboost", adaboost_model)], voting="soft", weights=weights)
+                        voting_model.fit(training_data, training_classifications)
+                        if greatest_voting_model == 0:
+                            greatest_voting_model = voting_model
+                        elif voting_model.score(scoring_data, scoring_classifications) > greatest_voting_model.score(scoring_data, scoring_classifications):
+                            greatest_voting_model = voting_model
+                            best_weights = [a + 1, b + 1, c + 1, d + 1, e + 1]
+    print(str(best_weights))
+
+
     print("Random Forest Accuracy: " + str(greatest_rf_model.score(scoring_data, scoring_classifications)))
     print("KNN Accuracy: " + str(greatest_knn_model.score(scoring_data, scoring_classifications)))
     print("MLP Accuracy: " + str(greatest_mlp_model.score(scoring_data, scoring_classifications)))
-    print("Gradient Boost Accuracy: " + str(greatest_boost_model.score(scoring_data, scoring_classifications)))
-    print("Adaboost Accuracy: " + str(greatest_adaboost_model.score(scoring_data, scoring_classifications)))
+    #print("Gradient Boost Accuracy: " + str(greatest_boost_model.score(scoring_data, scoring_classifications)))
+    #print("Adaboost Accuracy: " + str(greatest_adaboost_model.score(scoring_data, scoring_classifications)))
     print("SVM Accuracy: " + str(greatest_svm_model.score(scoring_data, scoring_classifications)))
-    # Best accuracy I've seen so far is .975 from random forest with n_estimators = 19 (other promising values: 18, 132)
-
-    # Can play around more with weights (and different voting classifiers) to see if it yields better results
-    voting_model = VotingClassifier(estimators=[("knn", knn_model), ("rf", rf_model), ("mlp", mlp_model), ("gradient_boost", boost_model), ("adaboost", adaboost_model)], voting="soft", weights=[1, 1, 1, 1, 1])
-    voting_model.fit(training_data, training_classifications)
     print("Voting Accuracy: " + str(voting_model.score(scoring_data, scoring_classifications)))
+    # Best accuracy I've seen so far is .975 from random forest with n_estimators = 19, 5 (other promising values: 18, 132)
 
 
-    return
+
+    bad_vectors = []
+    accuracy = 0
     # Try using all combined for classification
     for i in range(len(scoring_data)):
+        correct_predictions = []
+        correct_prediction = scoring_classifications[i]
+
         rf_prediction = greatest_rf_model.predict([scoring_data[i]])
+        if rf_prediction == correct_prediction:
+            correct_predictions.append("rf")
         knn_prediction = greatest_knn_model.predict([scoring_data[i]])
+        if knn_prediction == correct_prediction:
+            correct_predictions.append("knn")
         mlp_prediction = greatest_mlp_model.predict([scoring_data[i]])
+        if mlp_prediction == correct_prediction:
+            correct_predictions.append("mlp")
+
         gradient_boost_prediction = greatest_boost_model.predict([scoring_data[i]])
+        if gradient_boost_prediction == correct_prediction:
+            correct_predictions.append("gradient_boost")
         adaboost_prediction = greatest_adaboost_model.predict([scoring_data[i]])
+        if adaboost_prediction == correct_prediction:
+            correct_predictions.append("adaboost")
+
         svm_prediction = greatest_svm_model.predict([scoring_data[i]])
+        if svm_prediction == correct_prediction:
+            correct_predictions.append("svm")
+        voting_prediction = voting_model.predict([scoring_data[i]])
+        if voting_prediction == correct_prediction:
+            correct_predictions.append(" voting")
 
         predictions = []
         predictions.append(rf_prediction)
         predictions.append(knn_prediction)
         predictions.append(mlp_prediction)
-        predictions.append(gradient_boost_prediction)
-        predictions.append(adaboost_prediction)
+        #predictions.append(gradient_boost_prediction)
+        #predictions.append(adaboost_prediction)
         predictions.append(svm_prediction)
+        predictions.append(voting_prediction)
+
+
 
         count_ceeinject = 0
         count_renos = 0
@@ -170,20 +280,27 @@ def run():
                 count_ceeinject += 1
             elif p == [-1]:
                 count_renos += 1
-        print("Count [1] (ceeinject): " + str(count_ceeinject) + " count [-1] (renos): " + str(count_renos) + " actual: " + str(scoring_classifications[i]))
-
-
-    # Output results of challenge set
-    results_file = open("results.txt", "w")
-    stats_file = open("./cs185c_feature_vectors/Challenge_stats.txt", "r")
-    for i in range(len(challenge_data)):
-        prediction = greatest_mlp_model.predict([challenge_data[i]])
-        line = stats_file.readline()[:8]
-        if prediction == [1]:
-            line += ", C\n"
+        prediction = 0
+        if count_ceeinject > count_renos:
+            prediction = 1
         else:
-            line += ", R\n"
-        results_file.write(line)
+            prediction = -1
+        if prediction == correct_prediction:
+            accuracy += 1
+        else:
+            bad_vectors.append(scoring_data[i])
+        print(str(prediction) + " Count [1] (ceeinject): " + str(count_ceeinject) + " count [-1] (renos): " + str(count_renos) + " actual: " + str(scoring_classifications[i]), end="")
+        print(" Correct: ", end="")
+        for c in correct_predictions:
+            print(str(c) + " ", end="")
+        print("")
+
+    print("accuracy: " + str(accuracy / len(scoring_data)))
+
+
+    return
+    """
+
 
 
 if __name__ == "__main__":
@@ -224,7 +341,7 @@ def find_best_rf(val):
 # Function that builds 10 random forests with the same parameters and find it's average accuracy
 def find_average_accuracy_rf(n_estimators, training_data, training_classifications, scoring_data, scoring_classifications):
     sum = 0
-    for i in range(20):
+    for i in range(100):
         rf_model = RandomForestClassifier(n_estimators=n_estimators)
         rf_model.fit(training_data, training_classifications)
         accuracy = rf_model.score(scoring_data, scoring_classifications)
@@ -232,8 +349,8 @@ def find_average_accuracy_rf(n_estimators, training_data, training_classificatio
         if accuracy > average_accuracies["greatest"]:
             average_accuracies["greatest"] = accuracy
             average_accuracies["greatest_n_estimators"] = n_estimators
-    average_accuracies[n_estimators] = sum / 20 # Put avg accuarcy in the dictionary
-    print("n_estimators: " + str(n_estimators) + " accuracy: " + str(sum / 20))
+    average_accuracies[n_estimators] = sum / 100 # Put avg accuarcy in the dictionary
+    print("n_estimators: " + str(n_estimators) + " accuracy: " + str(sum / 100))
 
 
 # Processes put the results in a dictionary average_accuracies
@@ -241,7 +358,7 @@ manager = Manager()
 average_accuracies = manager.dict()
 average_accuracies["greatest"] = 0
 average_accuracies["greatest_n_estimators"] = 0
-for i in range(40):
+for i in range(100):
     find_best_rf((i + 1) * 5)
 max_accuracy = 0
 max_n_estimator = 0

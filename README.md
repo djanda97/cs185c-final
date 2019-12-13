@@ -4,7 +4,5 @@
   * source env/bin/activate
   * pip3 install -r requirements.txt
 
-* To run the program (needs to be run separately for each family of malware):
-  * python3 final.py --family CeeInject
-  * python3 final.py --family Renos
-  * python3 final.py --family Challenge
+* To run the program:
+  * python3 final.py

@@ -88,7 +88,7 @@ def run():
     greatest_adaboost_model = 0
     greatest_svm_model = 0
     for i in range(20):
-        rf_model = RandomForestClassifier(n_estimators=132) # n_estimator = 132 found to be the best
+        rf_model = RandomForestClassifier(n_estimators=19) # n_estimator = 19 found to be the best, possible accuracy of .975
         rf_model.fit(training_data, training_classifications)
         if greatest_rf_model == 0:
             greatest_rf_model = rf_model
@@ -116,7 +116,7 @@ def run():
         elif boost_model.score(scoring_data, scoring_classifications) > greatest_boost_model.score(scoring_data, scoring_classifications):
             greatest_boost_model = boost_model
 
-        adaboost_model = AdaBoostClassifier(base_estimator = RandomForestClassifier(n_estimators = 132))
+        adaboost_model = AdaBoostClassifier(base_estimator = RandomForestClassifier(n_estimators = 18))
         adaboost_model.fit(training_data, training_classifications)
         if greatest_adaboost_model == 0:
             greatest_adaboost_model = adaboost_model
@@ -137,8 +137,41 @@ def run():
     print("Gradient Boost Accuracy: " + str(greatest_boost_model.score(scoring_data, scoring_classifications)))
     print("Adaboost Accuracy: " + str(greatest_adaboost_model.score(scoring_data, scoring_classifications)))
     print("SVM Accuracy: " + str(greatest_svm_model.score(scoring_data, scoring_classifications)))
-    # Best accuracy I've seen so far is .97 from random forest with n_estimators = 132
-    # Mlp also pretty good with .965
+    # Best accuracy I've seen so far is .975 from random forest with n_estimators = 19 (other promising values: 18, 132)
+
+    # Can play around more with weights (and different voting classifiers) to see if it yields better results
+    voting_model = VotingClassifier(estimators=[("knn", knn_model), ("rf", rf_model), ("mlp", mlp_model), ("gradient_boost", boost_model), ("adaboost", adaboost_model)], voting="soft", weights=[1, 1, 1, 1, 1])
+    voting_model.fit(training_data, training_classifications)
+    print("Voting Accuracy: " + str(voting_model.score(scoring_data, scoring_classifications)))
+
+
+    return
+    # Try using all combined for classification
+    for i in range(len(scoring_data)):
+        rf_prediction = greatest_rf_model.predict([scoring_data[i]])
+        knn_prediction = greatest_knn_model.predict([scoring_data[i]])
+        mlp_prediction = greatest_mlp_model.predict([scoring_data[i]])
+        gradient_boost_prediction = greatest_boost_model.predict([scoring_data[i]])
+        adaboost_prediction = greatest_adaboost_model.predict([scoring_data[i]])
+        svm_prediction = greatest_svm_model.predict([scoring_data[i]])
+
+        predictions = []
+        predictions.append(rf_prediction)
+        predictions.append(knn_prediction)
+        predictions.append(mlp_prediction)
+        predictions.append(gradient_boost_prediction)
+        predictions.append(adaboost_prediction)
+        predictions.append(svm_prediction)
+
+        count_ceeinject = 0
+        count_renos = 0
+        for p in predictions:
+            if p == [1]:
+                count_ceeinject += 1
+            elif p == [-1]:
+                count_renos += 1
+        print("Count [1] (ceeinject): " + str(count_ceeinject) + " count [-1] (renos): " + str(count_renos) + " actual: " + str(scoring_classifications[i]))
+
 
 
 if __name__ == "__main__":
@@ -163,7 +196,7 @@ def find_best_rf(val):
 
     # Make our program run multiple instances in parallel
     processes = []
-    n_estimator = val - 9
+    n_estimator = val - 4
     while n_estimator <= val:
         process = Process(target = find_average_accuracy_rf, args = (n_estimator, training_data, training_classifications, scoring_data, scoring_classifications))
         process.start()
@@ -194,16 +227,18 @@ manager = Manager()
 average_accuracies = manager.dict()
 average_accuracies["greatest"] = 0
 average_accuracies["greatest_n_estimators"] = 0
-for i in range(50):
-    find_best_rf((i + 1) * 10)
+for i in range(40):
+    find_best_rf((i + 1) * 5)
 max_accuracy = 0
 max_n_estimator = 0
 # Search through dictionary to find greatest accuracy
 for key in average_accuracies:
+    if key == "greatest" or key == "greatest_n_estimators":
+        continue
     val = average_accuracies[key]
     if val > max_accuracy:
         max_accuracy = val
         max_n_estimator = key
 
-print("best n_estimators: " + str(max_n_estimator) + " max accuracy: " + str(max_accuracy))
+print("best average n_estimators: " + str(max_n_estimator) + " max average accuracy: " + str(max_accuracy))
 print("Greatest accuracy found: " + str(average_accuracies["greatest"]) + " n_estimators: " + str(average_accuracies["greatest_n_estimators"]))

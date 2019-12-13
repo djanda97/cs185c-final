@@ -10,3 +10,5 @@
 
 * To compute the embedding vectors for Problem 1c:
   * python3 final.py --partc
+
+Team 1: Aaron, Claire, David, Ibrahim

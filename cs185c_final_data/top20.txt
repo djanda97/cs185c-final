@@ -1,0 +1,2 @@
+ ['PUSH', 'MOV', 'INC', 'DEC', 'POP', 'ADD', 'XOR', 'XCHG', 'OR', 'ADC', 'SUB', 'AND', 'SBB', 'CMP', 'IMUL', 'OUT', 'OUTSL', 'JO', 'JS', 'INSL']
+

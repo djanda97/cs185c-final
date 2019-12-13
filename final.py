@@ -114,7 +114,7 @@ def create_model_samples(path):
     for i, file in enumerate(sorted(os.listdir(path))):
         if i % 100 == 0:
             print(f"file #{i}")
-        samples.append(LineSentence(path + file, limit=100))
+        samples.append(LineSentence(path + file))
         models.append(
             Word2Vec(samples[i], size=2, window=6, min_count=1, workers=4))
 
@@ -155,29 +155,31 @@ def print_embedding_vectors(embedding_vectors):
 def problem_1c():
     print("\nProblem 1c:")
 
-    paths = [
-        "./cs185c_final_data/CeeInject/",
-        "./cs185c_final_data/Renos/",
-        "./cs185c_final_data/Challenge/"
-    ]
+    filename = "embedding_vectors.npy"
 
-    models = [
-        create_model_samples(paths[0]),
-        create_model_samples(paths[1]),
-        create_model_samples(paths[2])
-    ]
+    if not os.path.exists(filename):
+        paths = [
+            "./cs185c_final_data/CeeInject/",
+            "./cs185c_final_data/Renos/",
+            "./cs185c_final_data/Challenge/"
+        ]
 
-    # filename = "embedding_vectors.txt"
-    # if not os.path.exists(filename):
-    #     file = open(filename, "w")
-    #     file.write()
+        models = [
+            create_model_samples(paths[0]),
+            create_model_samples(paths[1]),
+            create_model_samples(paths[2])
+        ]
+
+        embedding_vectors = np.array([
+            get_embedding_vectors(models[0]),
+            get_embedding_vectors(models[1]),
+            get_embedding_vectors(models[2])
+        ])
+
+        np.save(filename, embedding_vectors)
+    else:
+        embedding_vectors = np.load(filename, allow_pickle=True)
     
-    embedding_vectors = np.array([
-        get_embedding_vectors(models[0]),
-        get_embedding_vectors(models[1]),
-        get_embedding_vectors(models[2])
-    ])
-
     print_embedding_vectors(embedding_vectors)
 
 

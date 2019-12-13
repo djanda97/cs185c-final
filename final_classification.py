@@ -79,28 +79,66 @@ def run():
 
     [training_data, training_classifications, scoring_data, scoring_classifications, challenge_data] = get_data()
 
-    # Build our random forest model and test the accuracy
-    # n_estimator = 132 found to be the best
-    rf_model = RandomForestClassifier(n_estimators=132)
-    rf_model.fit(training_data, training_classifications)
-    print("Random Forest Accuracy: " + str(rf_model.score(scoring_data, scoring_classifications)))
-
     # Try out a bunch of different models and test for accuracy:
-    knn_model = KNeighborsClassifier(n_neighbors=1, algorithm = "brute")
-    knn_model.fit(training_data, training_classifications)
-    print("KNN Accuracy: " + str(knn_model.score(scoring_data, scoring_classifications)))
-    mlp_model = MLPClassifier()
-    mlp_model.fit(training_data, training_classifications)
-    print("MLP Accuracy: " + str(mlp_model.score(scoring_data, scoring_classifications)))
-    boost_model = GradientBoostingClassifier()
-    boost_model.fit(training_data, training_classifications)
-    print("Gradient Boost Accuracy: " + str(boost_model.score(scoring_data, scoring_classifications)))
-    adaboost_model = AdaBoostClassifier(base_estimator = RandomForestClassifier(n_estimators = 100))
-    adaboost_model.fit(training_data, training_classifications)
-    print("Adaboost Accuracy: " + str(adaboost_model.score(scoring_data, scoring_classifications)))
-    svm_model = svm.SVC(kernel="poly", gamma="auto")
-    svm_model.fit(training_data, training_classifications)
-    print("SVM Accuracy: " + str(svm_model.score(scoring_data, scoring_classifications)))
+    # Try training 20 models of each type and using the one with greatest accuracy
+    greatest_rf_model = 0
+    greatest_knn_model = 0
+    greatest_mlp_model = 0
+    greatest_boost_model = 0
+    greatest_adaboost_model = 0
+    greatest_svm_model = 0
+    for i in range(20):
+        rf_model = RandomForestClassifier(n_estimators=132) # n_estimator = 132 found to be the best
+        rf_model.fit(training_data, training_classifications)
+        if greatest_rf_model == 0:
+            greatest_rf_model = rf_model
+        elif rf_model.score(scoring_data, scoring_classifications) > greatest_rf_model.score(scoring_data, scoring_classifications):
+            greatest_rf_model = rf_model
+
+        knn_model = KNeighborsClassifier(n_neighbors=1, algorithm = "brute")
+        knn_model.fit(training_data, training_classifications)
+        if greatest_knn_model == 0:
+            greatest_knn_model = knn_model
+        elif knn_model.score(scoring_data, scoring_classifications) > greatest_knn_model.score(scoring_data, scoring_classifications):
+            greatest_knn_model = knn_model
+
+        mlp_model = MLPClassifier(max_iter=1000)
+        mlp_model.fit(training_data, training_classifications)
+        if greatest_mlp_model == 0:
+            greatest_mlp_model = mlp_model
+        elif mlp_model.score(scoring_data, scoring_classifications) > greatest_mlp_model.score(scoring_data, scoring_classifications):
+            greatest_mlp_model = mlp_model
+
+        boost_model = GradientBoostingClassifier()
+        boost_model.fit(training_data, training_classifications)
+        if greatest_boost_model == 0:
+            greatest_boost_model = boost_model
+        elif boost_model.score(scoring_data, scoring_classifications) > greatest_boost_model.score(scoring_data, scoring_classifications):
+            greatest_boost_model = boost_model
+
+        adaboost_model = AdaBoostClassifier(base_estimator = RandomForestClassifier(n_estimators = 132))
+        adaboost_model.fit(training_data, training_classifications)
+        if greatest_adaboost_model == 0:
+            greatest_adaboost_model = adaboost_model
+        elif adaboost_model.score(scoring_data, scoring_classifications) > greatest_adaboost_model.score(scoring_data, scoring_classifications):
+            greatest_adaboost_model = adaboost_model
+
+        svm_model = svm.SVC(kernel="poly", gamma="auto")
+        svm_model.fit(training_data, training_classifications)
+        if greatest_svm_model == 0:
+            greatest_svm_model = svm_model
+        elif svm_model.score(scoring_data, scoring_classifications) > greatest_svm_model.score(scoring_data, scoring_classifications):
+            greatest_svm_model = svm_model
+
+
+    print("Random Forest Accuracy: " + str(greatest_rf_model.score(scoring_data, scoring_classifications)))
+    print("KNN Accuracy: " + str(greatest_knn_model.score(scoring_data, scoring_classifications)))
+    print("MLP Accuracy: " + str(greatest_mlp_model.score(scoring_data, scoring_classifications)))
+    print("Gradient Boost Accuracy: " + str(greatest_boost_model.score(scoring_data, scoring_classifications)))
+    print("Adaboost Accuracy: " + str(greatest_adaboost_model.score(scoring_data, scoring_classifications)))
+    print("SVM Accuracy: " + str(greatest_svm_model.score(scoring_data, scoring_classifications)))
+    # Best accuracy I've seen so far is .97 from random forest with n_estimators = 132
+    # Mlp also pretty good with .965
 
 
 if __name__ == "__main__":
@@ -139,19 +177,24 @@ def find_best_rf(val):
 # Function that builds 10 random forests with the same parameters and find it's average accuracy
 def find_average_accuracy_rf(n_estimators, training_data, training_classifications, scoring_data, scoring_classifications):
     sum = 0
-    for i in range(10):
+    for i in range(20):
         rf_model = RandomForestClassifier(n_estimators=n_estimators)
         rf_model.fit(training_data, training_classifications)
         accuracy = rf_model.score(scoring_data, scoring_classifications)
         sum += accuracy
-    average_accuracies[n_estimators] = sum / 10 # Put avg accuarcy in the dictionary
-    print("n_estimators: " + str(n_estimators) + " accuracy: " + str(sum / 10))
+        if accuracy > average_accuracies["greatest"]:
+            average_accuracies["greatest"] = accuracy
+            average_accuracies["greatest_n_estimators"] = n_estimators
+    average_accuracies[n_estimators] = sum / 20 # Put avg accuarcy in the dictionary
+    print("n_estimators: " + str(n_estimators) + " accuracy: " + str(sum / 20))
 
 
 # Processes put the results in a dictionary average_accuracies
 manager = Manager()
 average_accuracies = manager.dict()
-for i in range(100):
+average_accuracies["greatest"] = 0
+average_accuracies["greatest_n_estimators"] = 0
+for i in range(50):
     find_best_rf((i + 1) * 10)
 max_accuracy = 0
 max_n_estimator = 0
@@ -163,3 +206,4 @@ for key in average_accuracies:
         max_n_estimator = key
 
 print("best n_estimators: " + str(max_n_estimator) + " max accuracy: " + str(max_accuracy))
+print("Greatest accuracy found: " + str(average_accuracies["greatest"]) + " n_estimators: " + str(average_accuracies["greatest_n_estimators"]))

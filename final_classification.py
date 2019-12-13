@@ -87,8 +87,8 @@ def run():
     greatest_boost_model = 0
     greatest_adaboost_model = 0
     greatest_svm_model = 0
-    for i in range(20):
-        rf_model = RandomForestClassifier(n_estimators=19) # n_estimator = 19 found to be the best, possible accuracy of .975
+    for i in range(25):
+        rf_model = RandomForestClassifier(n_estimators=182) # n_estimator = 19 found to be the best, possible accuracy of .975. 182 best average
         rf_model.fit(training_data, training_classifications)
         if greatest_rf_model == 0:
             greatest_rf_model = rf_model
@@ -173,9 +173,23 @@ def run():
         print("Count [1] (ceeinject): " + str(count_ceeinject) + " count [-1] (renos): " + str(count_renos) + " actual: " + str(scoring_classifications[i]))
 
 
+    # Output results of challenge set
+    results_file = open("results.txt", "w")
+    stats_file = open("./cs185c_feature_vectors/Challenge_stats.txt", "r")
+    for i in range(len(challenge_data)):
+        prediction = greatest_mlp_model.predict([challenge_data[i]])
+        line = stats_file.readline()[:8]
+        if prediction == [1]:
+            line += ", C\n"
+        else:
+            line += ", R\n"
+        results_file.write(line)
+
 
 if __name__ == "__main__":
     run()
+
+
 
 
 
@@ -242,3 +256,4 @@ for key in average_accuracies:
 
 print("best average n_estimators: " + str(max_n_estimator) + " max average accuracy: " + str(max_accuracy))
 print("Greatest accuracy found: " + str(average_accuracies["greatest"]) + " n_estimators: " + str(average_accuracies["greatest_n_estimators"]))
+# Best seen so far is .975 with n_estimators = 19

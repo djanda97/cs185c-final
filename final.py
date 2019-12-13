@@ -9,24 +9,14 @@ import argparse
 import pickle
 import os.path
 import numpy as np
+from disjoint_set import DisjointSet
 
 
 def get_similarities(word_vectors, opcode_pairs):
     similarities = {}
-    positive_count = 0
-    negative_count = 0
 
     for pair in opcode_pairs:
-        similarity = word_vectors.similarity(pair[0], pair[1])
-        similarities[pair] = similarity
-        if similarity >= 0:
-            positive_count += 1
-        else:
-            negative_count += 1
-
-    print("\npositive_count:", positive_count)
-    print("negative_count:", negative_count)
-    print("difference:", abs(positive_count - negative_count))
+        similarities[pair] = word_vectors.similarity(pair[0], pair[1])
 
     return similarities
 
@@ -40,14 +30,22 @@ def get_top20(filename):
     for char in removeChars:
         top20 = top20.replace(char, "")
 
-    top20 = [opcode.lower() for opcode in top20.split()]
-
+    top20 = top20.split()
+    top20 = [opcode.lower() for opcode in top20]
     return top20
 
 
 def get_opcode_pairs():
-    top20 = get_top20("./cs185c_final_data/top20.txt")
-    opcode_pairs = combinations(top20, 2)
+    if not os.path.exists("opcode_pairs.pickle"):
+        top20 = get_top20("./cs185c_final_data/top20.txt")
+
+        opcode_pairs = combinations(top20, 2)
+
+        with open("opcode_pairs.pickle", "wb") as file:
+            pickle.dump(opcode_pairs, file)
+    else:
+        with open("opcode_pairs.pickle", "rb") as file:
+            opcode_pairs = pickle.load(file)
 
     return opcode_pairs
 
@@ -58,25 +56,77 @@ class EpochLogger(CallbackAny2Vec):
 
     def on_epoch_begin(self, model):
         print("Epoch #{} start".format(self.epoch))
+
+    def on_epoch_end(self, model):
+        print("Epoch #{} end".format(self.epoch))
         self.epoch += 1
 
 
-def create_model(family):
-    path = "./cs185c_final_data/" + family
-    data = PathLineSentences(path)
+def run():
+    parser = argparse.ArgumentParser(
+        description="Compute embedding vectors for different malware families.")
+    parser.add_argument(
+        "--family", "-f", help="Specify which family of malware to compute embedding vectors for. (CeeInject, Renos, or Challenge)", type=str, default="CeeInject")
+
+    args = parser.parse_args()
+
+    path = "./cs185c_final_data/" + args.family
+
+    data = PathLineSentences(path, limit=50)
+    # data = PathLineSentences(path)
+
     epoch_logger = EpochLogger()
 
-    model_file = family + ".model"
+    # if not os.path.exists(args.family + ".model"):
+    model = Word2Vec(data, size=2, window=6, min_count=1,
+                        workers=4, callbacks=[epoch_logger])
+    model_file = args.family + ".model"
+    model.save(model_file)
+    # else:
+    #     model = Word2Vec.load(args.family + ".model")
 
-    if not os.path.exists(model_file):
-        model = Word2Vec(data, size=2, window=6, min_count=1,
-                         workers=4, callbacks=[epoch_logger])
-        model.save(model_file)
-    else:
-        model = Word2Vec.load(model_file)
+    samples = []
+    models = []
+    embedding_vectors = []
+
+    for i, file in enumerate(sorted(os.listdir(path))):
+        if i % 100 == 0:
+            print("file:", file)
+        samples.append(LineSentence(path + "/" + file, limit=50))
+        models.append(Word2Vec(samples[i], size=2, window=6, min_count=1,
+                               workers=4))
+
+    # for m in models:
+    #     print(m)
+
+    embedding_vectors = np.array([])
+
+    top20 = get_top20("./cs185c_final_data/top20.txt")
+
+    for m in models:
+        for i in range(20):
+            if top20[i] not in m.wv.vocab:
+                embedding_vectors = np.append(embedding_vectors, [0, 0])
+            else:
+                embedding_vectors = np.append(embedding_vectors, m.wv[top20[i]])
+
+    embedding_vectors = np.reshape(embedding_vectors, (40, 900))
+    embedding_vectors = np.transpose(embedding_vectors)
+
+    print("\nembedding_vectors:\n")
+    pprint(embedding_vectors)
+    print("embedding_vectors.shape:", embedding_vectors.shape)
+
+    print("\nembedding_vectors[0]:\n")
+    pprint(embedding_vectors[0])
+    print("embedding_vectors[0].shape:", embedding_vectors[0].shape)
+
+    # for i in range(embedding_vectors.shape[0]):
+    #     pprint(embedding_vectors[i])
+    #     print(f"embedding_vectors[{i}].shape:", embedding_vectors[i].shape)
 
     word_vectors = model.wv
-
+    
     opcode_vectors = []
 
     print("\nopcode_vectors:")
@@ -88,100 +138,24 @@ def create_model(family):
 
     similarities = get_similarities(word_vectors, opcode_pairs)
 
+    
     print("\nsimilarities:")
     for pair, similarity in similarities.items():
         print(pair, ":", similarity)
 
-
-def get_opcode_groups():
-    print("Getting opcode groups:")
-
-
-def problem_1a():
-    print("\nProblem 1a:")
-    create_model("CeeInject")
-
-
-def problem_1b():
-    print("\nProblem 1b:")
-    create_model("Renos")
-
-
-def create_model_samples(path):
-    samples = []
-    models = []
-
-    for i, file in enumerate(sorted(os.listdir(path))):
-        if i % 100 == 0:
-            print(f"file #{i}")
-        samples.append(LineSentence(path + file, limit=100))
-        models.append(
-            Word2Vec(samples[i], size=2, window=6, min_count=1, workers=4))
-
-    return models
-
-
-def get_embedding_vectors(models):
-    embedding_vectors = np.array([])
-
-    top20 = get_top20("./cs185c_final_data/top20.txt")
-
-    for m in models:
-        for i in range(len(top20)):
-            opcode = top20[i]
-            if opcode in m.wv.vocab:
-                embedding_vectors = np.append(embedding_vectors, m.wv[opcode])
-            else:
-                embedding_vectors = np.append(embedding_vectors, [0, 0])
     
-    embedding_vectors = np.reshape(embedding_vectors, (len(models), 40))
-
-    return embedding_vectors
-
-
-def print_embedding_vectors(embedding_vectors):
-    for i in range(embedding_vectors.shape[0]):
-        print(f"embedding_vectors[{i}]:")
-        pprint(embedding_vectors[i])
-        print(f"embedding_vectors[{i}].shape:", embedding_vectors[i].shape)
-
-    for i in range(embedding_vectors.shape[0]):
-        print(f"\nembedding_vectors[0][{i}]:")
-        pprint(embedding_vectors[0][i])
-        print(f"embedding_vectors[0][{i}].shape:",
-            embedding_vectors[0][i].shape)
-
-
-def problem_1c():
-    print("\nProblem 1c:")
-
-    paths = [
-        "./cs185c_final_data/CeeInject/",
-        "./cs185c_final_data/Renos/",
-        "./cs185c_final_data/Challenge/"
-    ]
-
-    models = [
-        create_model_samples(paths[0]),
-        create_model_samples(paths[1]),
-        create_model_samples(paths[2])
-    ]
-
-    # filename = "embedding_vectors.txt"
-    # if not os.path.exists(filename):
-    #     file = open(filename, "w")
-    #     file.write()
     
-    embedding_vectors = np.array([
-        get_embedding_vectors(models[0]),
-        get_embedding_vectors(models[1]),
-        get_embedding_vectors(models[2])
-    ])
+    print("\nOpcodes Grouping based on the computed cosine similarity values:")
+    ds = DisjointSet() 
+    for i, j in similarities:
+        ds.find(i)
+        ds.find(j)
+        #change threshhold here
+        if  similarities[i,j]> 0.85:
+            ds.union(i, j)
+    print(list(ds.itersets()))
 
-    print_embedding_vectors(embedding_vectors)
 
 
 if __name__ == "__main__":
-    problem_1a()
-    problem_1b()
-    problem_1c()
+    run()
